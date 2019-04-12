@@ -174,8 +174,11 @@ class ZHANGYiNet_REPRO_1(nn.Module):
             self.attentiveLSTM = MyAttentiveLSTM(nb_features_in=512, nb_features_out=512,
                                                  nb_features_att=512, nb_rows=3, nb_cols=3)
 
+            # define the learnable gaussian priors
+            self.gaussian_priors = MyPriors()
+
             # define the final convolutional neural network
-            self.endconv = nn.Conv2d(in_channels=512, out_channels=1,
+            self.endconv = nn.Conv2d(in_channels=(512+nb_gaussian), out_channels=1,
                 kernel_size=1, stride=1, padding=0, dilation=1, groups=1, bias=True)
             self.upsampling = nn.UpsamplingBilinear2d([shape_r_out, shape_c_out])
             self.sigmoid = nn.Sigmoid()
@@ -187,6 +190,11 @@ class ZHANGYiNet_REPRO_1(nn.Module):
 
         # the convLSTM model
         x = self.attentiveLSTM(x)
+
+        # the learnable prior block
+        x = self.gaussian_priors(x)
+
+        # the non local neural block
 
         # the final convolutional neural network
         x = self.endconv(x)
@@ -285,6 +293,9 @@ if __name__ == '__main__':
 
         for i, data in enumerate(train_loader):
 
+            if i>0:
+                break
+
             inputs, maps, fixs = data
             inputs, maps, fixs = Variable(inputs), Variable(maps), Variable(fixs)
 
@@ -310,9 +321,9 @@ if __name__ == '__main__':
             optimizer.zero_grad()
             outputs = net(inputs)
 
-            # compute loss
+            # compute loss ("2" is an experiential default)
             loss = scal_KLD * criterion_KLD(outputs, maps) + scal_CC * criterion_CC(outputs, maps)\
-                   + scal_NSS * criterion_NSS(outputs, fixs)
+                   + scal_NSS * criterion_NSS(outputs, fixs) + 2
 
             # compute metric
             metric = criterion_DC(outputs, maps)
@@ -373,6 +384,9 @@ if __name__ == '__main__':
             net.eval()
             for i, data in enumerate(valid_loader):
 
+                if i>0:
+                    break
+
                 images, maps, fixs = data
                 images, maps, fixs = Variable(images), Variable(maps), Variable(fixs)
 
@@ -380,9 +394,9 @@ if __name__ == '__main__':
                 outputs = net(images)
                 outputs.detach_()
 
-                # compute loss
+                # compute loss ("2" is an experiential default)
                 loss = scal_KLD * criterion_KLD(outputs, maps) + scal_CC * criterion_CC(outputs, maps) \
-                       + scal_NSS * criterion_NSS(outputs, fixs)
+                       + scal_NSS * criterion_NSS(outputs, fixs) + 2
 
                 # compute metric
                 metric = criterion_DC(outputs, maps)
