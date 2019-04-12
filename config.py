@@ -14,8 +14,12 @@ b_s = 4 # be exactly divided by the total number of training as well validation 
 shape_r_out = 480
 # number of cols of model outputs
 shape_c_out = 640
+# number of rows of learned features
+shape_r_f = 30
+# number of cols of learned features
+shape_c_f = 40
 # number of epochs
-nb_epoch = 5
+nb_epoch = 1
 # number of timestep
 nb_timestep = 4
 # number of learned priors
