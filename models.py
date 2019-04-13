@@ -270,20 +270,19 @@ class MyNonLocBlock(nn.Module):
 # define the learnable priors
 class MyPriors(nn.Module):
 
-    def __init__(self):
+    def __init__(self, gp):
         super(MyPriors, self).__init__()
         self.conv5_5 = nn.Conv2d(in_channels=(512+nb_gaussian), out_channels=512, kernel_size=5,
                                stride=1, padding=8, dilation=4, groups=1, bias=False)
         self.relu = nn.ReLU(inplace=True)
+        self.gp = gp
 
     def forward(self, x):
 
         # cancate the generated gaussian priors with the original inputs
-        gp = generate_gaussian_prior()
         gp_seq = []
-        gp.unsqueeze_(0)
         for c in range(b_s):
-            gp_seq.append(gp)
+            gp_seq.append(self.gp)
         gp_seq = torch.cat(gp_seq, 0)
         x = torch.cat([gp_seq, x], 1)
 
@@ -292,7 +291,6 @@ class MyPriors(nn.Module):
         x = self.relu(x)
 
         return x
-
 
 def generate_gaussian_prior():
 
@@ -330,6 +328,8 @@ def generate_gaussian_prior():
         for m in range(shape_r_f):
             for n in range(shape_c_f):
                 gp[j, m, n] = f_r[m, j] * f_c[n, j]
+
+    gp.unsqueeze_(0)
 
                 # another way to gain the gp
                 # gp[j,m,n] = 1 / (2 * np.pi * delta_x[j,0] * delta_y[j,0]) \

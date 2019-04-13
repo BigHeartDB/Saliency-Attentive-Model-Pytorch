@@ -155,7 +155,7 @@ def data_preprocessing():
 # ------------------------------------ step 2 : Net Defining ------------------------------------------------
 class ZHANGYiNet_REPRO_1(nn.Module):
 
-    def __init__(self):
+    def __init__(self, gaussian_prior):
         super(ZHANGYiNet_REPRO_1, self).__init__()
 
         # debug
@@ -175,7 +175,7 @@ class ZHANGYiNet_REPRO_1(nn.Module):
                                                  nb_features_att=512, nb_rows=3, nb_cols=3)
 
             # define the learnable gaussian priors
-            self.gaussian_priors = MyPriors()
+            self.gaussian_priors = MyPriors(gp=gaussian_prior)
 
             # define the final convolutional neural network
             self.endconv = nn.Conv2d(in_channels=512, out_channels=1,
@@ -222,9 +222,13 @@ class ZHANGYiNet_REPRO_1(nn.Module):
 # ------------------------------------ step 3 : Optimizer and LOSS ----------------------------------------------------
 if __name__ == '__main__':
 
+    # generate the gaussian priors
+    gp = generate_gaussian_prior()
+
     # call the proposed model
-    net = ZHANGYiNet_REPRO_1()
+    net = ZHANGYiNet_REPRO_1(gaussian_prior=gp)
     net.initialize_weights()
+
     # net.cuda()
 
     # build a Kullback-Leibler divergence
@@ -287,6 +291,7 @@ if __name__ == '__main__':
     # the main loop
     for epoch in range(nb_epoch):
         loss_sigma = 0.0
+        loss_val = 0.0
         correct = 0.0
         total = 0.0
         correct_val = 0.0
@@ -294,6 +299,9 @@ if __name__ == '__main__':
         scheduler.step()
 
         for i, data in enumerate(train_loader):
+
+            if i > 0:
+                break
 
             inputs, maps, fixs = data
             inputs, maps, fixs = Variable(inputs), Variable(maps), Variable(fixs)
@@ -379,9 +387,11 @@ if __name__ == '__main__':
             writer.add_histogram(name + '_data', layer.cpu().data.numpy(), epoch)
 
         if epoch % 1 == 0:
-            loss_sigma = 0.0
             net.eval()
             for i, data in enumerate(valid_loader):
+
+                if i > 0:
+                    break
 
                 images, maps, fixs = data
                 images, maps, fixs = Variable(images), Variable(maps), Variable(fixs)
@@ -397,15 +407,18 @@ if __name__ == '__main__':
                 # compute metric
                 metric = criterion_DC(outputs, maps)
 
-                loss_sigma += loss.item()
+                loss_val += loss.item()
                 correct_val += metric
                 total_val += 1
 
+                loss_avg_val = loss_val
+                loss_val = 0.0
+
                 print("Validation: Epoch[{:0>3}/{:0>3}] Iteration[{:0>3}/{:0>3}] Loss: {:.4f} Acc:{:.2%}".
-                      format(epoch + 1, nb_epoch, i + 1, len(valid_loader), loss_sigma, correct_val / total_val))
+                      format(epoch + 1, nb_epoch, i + 1, len(valid_loader), loss_avg_val, correct_val / total_val))
 
                 # record validation loss
-                writer.add_scalars('Loss_group', {'valid_loss': loss_sigma}, epoch)
+                writer.add_scalars('Loss_group', {'valid_loss': loss_avg_val}, epoch)
                 # record validation accuracy
                 writer.add_scalars('Accuracy_group', {'valid_acc': correct_val / total_val}, epoch)
 
