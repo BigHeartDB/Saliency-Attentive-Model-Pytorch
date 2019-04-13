@@ -178,7 +178,7 @@ class ZHANGYiNet_REPRO_1(nn.Module):
             self.gaussian_priors = MyPriors()
 
             # define the final convolutional neural network
-            self.endconv = nn.Conv2d(in_channels=(512+nb_gaussian), out_channels=1,
+            self.endconv = nn.Conv2d(in_channels=512, out_channels=1,
                 kernel_size=1, stride=1, padding=0, dilation=1, groups=1, bias=True)
             self.upsampling = nn.UpsamplingBilinear2d([shape_r_out, shape_c_out])
             self.sigmoid = nn.Sigmoid()
@@ -245,7 +245,7 @@ if __name__ == '__main__':
     optimizer = optim.SGD(net.parameters(), lr=lr_init, momentum=0.9, dampening=0.1)
 
     # define the scheduler for learning rate decreasing
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1)
 
 
 # ------------------------------------ step 4 : model training ----------------------------------------------
@@ -292,9 +292,6 @@ if __name__ == '__main__':
         scheduler.step()
 
         for i, data in enumerate(train_loader):
-
-            if i>0:
-                break
 
             inputs, maps, fixs = data
             inputs, maps, fixs = Variable(inputs), Variable(maps), Variable(fixs)
@@ -383,9 +380,6 @@ if __name__ == '__main__':
             loss_sigma = 0.0
             net.eval()
             for i, data in enumerate(valid_loader):
-
-                if i>0:
-                    break
 
                 images, maps, fixs = data
                 images, maps, fixs = Variable(images), Variable(maps), Variable(fixs)

@@ -19,7 +19,7 @@ shape_r_f = 30
 # number of cols of learned features
 shape_c_f = 40
 # number of epochs
-nb_epoch = 1
+nb_epoch = 3
 # number of timestep
 nb_timestep = 4
 # number of learned priors

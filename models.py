@@ -272,68 +272,13 @@ class MyPriors(nn.Module):
 
     def __init__(self):
         super(MyPriors, self).__init__()
+        self.conv5_5 = nn.Conv2d(in_channels=(512+nb_gaussian), out_channels=512, kernel_size=5,
+                               stride=1, padding=8, dilation=4, groups=1, bias=False)
 
     def forward(self, x):
 
-        # initialize the gaussian feature clip
-        gp = torch.zeros(nb_gaussian, shape_r_f, shape_c_f)
-
-        # initialize the gaussian distribution along x and y in each of the feature  map
-        f_r = torch.zeros(shape_r_f, nb_gaussian)
-        f_c = torch.zeros(shape_c_f, nb_gaussian)
-
-        # lock the generated parameters
-        random.seed(666)
-
-        # randomly initialize the delta and mean for the gaussian prior
-        delta_x = torch.zeros(nb_gaussian,1)
-        delta_y = torch.zeros(nb_gaussian,1)
-        for r in range(nb_gaussian):
-            delta_x[r,0] = random.uniform(0.1, 0.9)
-            delta_y[r,0] = random.uniform(0.2, 0.8)
-        sigma_x = delta_x * (0.3*((shape_r_f-1)*0.5 - 1) + 0.8)
-        sigma_y = delta_y * (0.3*((shape_c_f-1)*0.5 - 1) + 0.8)
-
-        # randomly initialize gaussian distribution along X and Y in each of the feature map
-        for gr in range(nb_gaussian):
-           gaussian_cur = cv2.getGaussianKernel(shape_r_f, sigma_x[gr,0])
-           gaussian_cur = torch.from_numpy(gaussian_cur)
-           f_r[:,gr] = gaussian_cur[:,0]
-        for gc in range(nb_gaussian):
-           gaussian_cur = cv2.getGaussianKernel(shape_c_f, sigma_y[gc,0])
-           gaussian_cur = torch.from_numpy(gaussian_cur)
-           f_c[:, gc] = gaussian_cur[:,0]
-
-        # generate each of the gaussian map
-        for j in range(nb_gaussian):
-            for m in range(shape_r_f):
-                for n in range(shape_c_f):
-                    gp[j,m,n] = f_r[m,j] * f_c[n,j]
-                    # gp[j,m,n] = 1 / (2 * np.pi * delta_x[j,0] * delta_y[j,0]) \
-                    #     * torch.exp((-1) * ((f_r[m,j]-mean_x[j,0])*(f_r[m,j]-mean_x[j,0])/(2*delta_x[j,0]*delta_x[j,0])
-                    #                 +(f_c[n,j]-mean_y[j,0])*(f_c[n,j]-mean_y[j,0])/(2*delta_y[j,0]*delta_y[j,0])))
-
-        # debug
-        # plt.figure
-        # show_01 = gp[0,:,:]
-        # show_01.numpy()
-        # plt.subplot(1,4,1)
-        # plt.imshow(show_01, cmap='gray')
-        # show_02 = gp[5,:,:]
-        # show_02.numpy()
-        # plt.subplot(1,4,2)
-        # plt.imshow(show_02, cmap='gray')
-        # show_03 = gp[9,:,:]
-        # show_03.numpy()
-        # plt.subplot(1,4,3)
-        # plt.imshow(show_03, cmap='gray')
-        # show_04 = gp[13,:,:]
-        # show_04.numpy()
-        # plt.subplot(1,4,4)
-        # plt.imshow(show_04, cmap='gray')
-        # plt.show()
-
         # cancate the generated gaussian priors with the original inputs
+        gp = generate_gaussian_prior()
         gp_seq = []
         gp.unsqueeze_(0)
         for c in range(b_s):
@@ -341,7 +286,75 @@ class MyPriors(nn.Module):
         gp_seq = torch.cat(gp_seq, 0)
         x = torch.cat([gp_seq, x], 1)
 
+        # the conv 5*5 (to learn the feature of center bias from generated gaussian kernels)
+        x = self.conv5_5(x)
+
         return x
+
+
+def generate_gaussian_prior():
+
+    # initialize the gaussian feature clip
+    gp = torch.zeros(nb_gaussian, shape_r_f, shape_c_f)
+
+    # initialize the gaussian distribution along x and y in each of the feature  map
+    f_r = torch.zeros(shape_r_f, nb_gaussian)
+    f_c = torch.zeros(shape_c_f, nb_gaussian)
+
+    # lock the generated parameters
+    random.seed(666)
+
+    # randomly initialize the delta and mean for the gaussian prior
+    delta_x = torch.zeros(nb_gaussian, 1)
+    delta_y = torch.zeros(nb_gaussian, 1)
+    for r in range(nb_gaussian):
+        delta_x[r, 0] = random.uniform(0.1, 0.9)
+        delta_y[r, 0] = random.uniform(0.2, 0.8)
+    sigma_x = delta_x * (0.3 * ((shape_r_f - 1) * 0.5 - 1) + 0.8)
+    sigma_y = delta_y * (0.3 * ((shape_c_f - 1) * 0.5 - 1) + 0.8)
+
+    # randomly initialize gaussian distribution along X and Y in each of the feature map
+    for gr in range(nb_gaussian):
+        gaussian_cur = cv2.getGaussianKernel(shape_r_f, sigma_x[gr, 0])
+        gaussian_cur = torch.from_numpy(gaussian_cur)
+        f_r[:, gr] = gaussian_cur[:, 0]
+    for gc in range(nb_gaussian):
+        gaussian_cur = cv2.getGaussianKernel(shape_c_f, sigma_y[gc, 0])
+        gaussian_cur = torch.from_numpy(gaussian_cur)
+        f_c[:, gc] = gaussian_cur[:, 0]
+
+    # generate each of the gaussian map
+    for j in range(nb_gaussian):
+        for m in range(shape_r_f):
+            for n in range(shape_c_f):
+                gp[j, m, n] = f_r[m, j] * f_c[n, j]
+
+                # another way to gain the gp
+                # gp[j,m,n] = 1 / (2 * np.pi * delta_x[j,0] * delta_y[j,0]) \
+                #     * torch.exp((-1) * ((f_r[m,j]-mean_x[j,0])*(f_r[m,j]-mean_x[j,0])/(2*delta_x[j,0]*delta_x[j,0])
+                #                 +(f_c[n,j]-mean_y[j,0])*(f_c[n,j]-mean_y[j,0])/(2*delta_y[j,0]*delta_y[j,0])))
+
+                # debug
+                # plt.figure
+                # show_01 = gp[0,:,:]
+                # show_01.numpy()
+                # plt.subplot(1,4,1)
+                # plt.imshow(show_01, cmap='gray')
+                # show_02 = gp[5,:,:]
+                # show_02.numpy()
+                # plt.subplot(1,4,2)
+                # plt.imshow(show_02, cmap='gray')
+                # show_03 = gp[9,:,:]
+                # show_03.numpy()
+                # plt.subplot(1,4,3)
+                # plt.imshow(show_03, cmap='gray')
+                # show_04 = gp[13,:,:]
+                # show_04.numpy()
+                # plt.subplot(1,4,4)
+                # plt.imshow(show_04, cmap='gray')
+                # plt.show()
+
+    return gp
 
 
 # ---------------------------------------------------------------------------------------------------------------------
