@@ -274,6 +274,7 @@ class MyPriors(nn.Module):
         super(MyPriors, self).__init__()
         self.conv5_5 = nn.Conv2d(in_channels=(512+nb_gaussian), out_channels=512, kernel_size=5,
                                stride=1, padding=8, dilation=4, groups=1, bias=False)
+        self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
 
@@ -288,6 +289,7 @@ class MyPriors(nn.Module):
 
         # the conv 5*5 (to learn the feature of center bias from generated gaussian kernels)
         x = self.conv5_5(x)
+        x = self.relu(x)
 
         return x
 

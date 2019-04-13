@@ -112,6 +112,8 @@ epsilon_DC = 0.001
 scal_NSS = -1
 # initialize the learning rate
 lr_init = 0.001
+# learning rate updating
+step_size = 10
 
 # feature_channel = 512
 # upsampling factor = 240/30 = 8

@@ -181,6 +181,7 @@ class ZHANGYiNet_REPRO_1(nn.Module):
             self.endconv = nn.Conv2d(in_channels=512, out_channels=1,
                 kernel_size=1, stride=1, padding=0, dilation=1, groups=1, bias=True)
             self.upsampling = nn.UpsamplingBilinear2d([shape_r_out, shape_c_out])
+            self.relu = nn.ReLU(inplace=True)
             self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
@@ -198,6 +199,7 @@ class ZHANGYiNet_REPRO_1(nn.Module):
 
         # the final convolutional neural network
         x = self.endconv(x)
+        x = self.relu(x)
         x = self.upsampling(x)
         x = self.sigmoid(x)
 
@@ -245,7 +247,7 @@ if __name__ == '__main__':
     optimizer = optim.SGD(net.parameters(), lr=lr_init, momentum=0.9, dampening=0.1)
 
     # define the scheduler for learning rate decreasing
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=0.1)
 
 
 # ------------------------------------ step 4 : model training ----------------------------------------------
